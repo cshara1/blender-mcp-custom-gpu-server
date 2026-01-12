@@ -2164,9 +2164,18 @@ class BlenderMCPServer:
                     except Exception as e:
                         return {"error": f"Image encoding failed: {str(e)}"}
 
+            # Retrieve auth credentials
+            auth_username = bpy.context.scene.blendermcp_hunyuan3d_local_auth_username
+            auth_password = bpy.context.scene.blendermcp_hunyuan3d_local_auth_password
+            auth = None
+            if auth_username or auth_password:
+                from requests.auth import HTTPBasicAuth
+                auth = HTTPBasicAuth(auth_username, auth_password)
+
             response = requests.post(
                 f"{base_url}/generate",
                 json = data,
+                auth = auth
             )
 
             if response.status_code != 200:
@@ -2383,6 +2392,8 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
                 layout.prop(scene, "blendermcp_hunyuan3d_secret_key", text="SecretKey")
             if scene.blendermcp_hunyuan3d_mode == 'LOCAL_API':
                 layout.prop(scene, "blendermcp_hunyuan3d_api_url", text="API URL")
+                layout.prop(scene, "blendermcp_hunyuan3d_local_auth_username", text="Username")
+                layout.prop(scene, "blendermcp_hunyuan3d_local_auth_password", text="Password")
                 layout.prop(scene, "blendermcp_hunyuan3d_octree_resolution", text="Octree Resolution")
                 layout.prop(scene, "blendermcp_hunyuan3d_num_inference_steps", text="Number of Inference Steps")
                 layout.prop(scene, "blendermcp_hunyuan3d_guidance_scale", text="Guidance Scale")
@@ -2497,6 +2508,8 @@ def register():
         default="MAIN_SITE"
     )
 
+
+
     bpy.types.Scene.blendermcp_hyper3d_api_key = bpy.props.StringProperty(
         name="Hyper3D API Key",
         subtype="PASSWORD",
@@ -2537,6 +2550,19 @@ def register():
         name="API URL",
         description="URL of the Hunyuan 3D API service",
         default="http://localhost:8081"
+    )
+
+    bpy.types.Scene.blendermcp_hunyuan3d_local_auth_username = bpy.props.StringProperty(
+        name="Username",
+        description="Username for Basic Auth",
+        default=""
+    )
+
+    bpy.types.Scene.blendermcp_hunyuan3d_local_auth_password = bpy.props.StringProperty(
+        name="Password",
+        subtype="PASSWORD",
+        description="Password for Basic Auth",
+        default=""
     )
 
     bpy.types.Scene.blendermcp_hunyuan3d_octree_resolution = bpy.props.IntProperty(
@@ -2619,6 +2645,8 @@ def unregister():
     del bpy.types.Scene.blendermcp_hunyuan3d_secret_id
     del bpy.types.Scene.blendermcp_hunyuan3d_secret_key
     del bpy.types.Scene.blendermcp_hunyuan3d_api_url
+    del bpy.types.Scene.blendermcp_hunyuan3d_local_auth_username
+    del bpy.types.Scene.blendermcp_hunyuan3d_local_auth_password
     del bpy.types.Scene.blendermcp_hunyuan3d_octree_resolution
     del bpy.types.Scene.blendermcp_hunyuan3d_num_inference_steps
     del bpy.types.Scene.blendermcp_hunyuan3d_guidance_scale

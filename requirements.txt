@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+gradio
+pydantic
+requests
+python-multipart
+torch
+diffusers
+transformers
+git+https://github.com/Tencent-Hunyuan/Hunyuan3D-2.git
