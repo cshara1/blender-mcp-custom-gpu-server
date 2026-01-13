@@ -23,7 +23,7 @@ from contextlib import redirect_stdout, suppress
 bl_info = {
     "name": "Blender MCP",
     "author": "BlenderMCP",
-    "version": (1, 2),
+    "version": (1, 2, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > BlenderMCP",
     "description": "Connect Blender to Claude via MCP",
@@ -2183,9 +2183,56 @@ class BlenderMCPServer:
                     "error": f"Generation failed: {response.text}"
                 }
         
+            model_content = None
+            
+            # Check if response is async job_id
+            job_id = None
+            try:
+                # Try parsing as JSON to see if it's a job response
+                resp_json = response.json()
+                if isinstance(resp_json, dict) and "job_id" in resp_json:
+                    job_id = resp_json["job_id"]
+            except:
+                # Not JSON or not a job dictionary, treat as binary file (legacy sync mode)
+                pass
+
+            if job_id:
+                print(f"Async Job {job_id} started. Polling for completion...")
+                # Poll for completion
+                max_retries = 300 # 10 minutes max
+                for _ in range(max_retries):
+                    time.sleep(2)
+                    try:
+                        status_res = requests.get(f"{base_url}/status/{job_id}", auth=auth)
+                        if status_res.status_code != 200:
+                            print(f"Status check failed: {status_res.status_code}")
+                            continue
+                            
+                        status_data = status_res.json()
+                        status = status_data.get("status")
+                        
+                        if status == "completed":
+                            model_base64 = status_data.get("model_base64")
+                            if model_base64:
+                                model_content = base64.b64decode(model_base64)
+                            break
+                        elif status == "failed":
+                            return {"error": "Generation failed on server."}
+                    except Exception as e:
+                        print(f"Polling error: {e}")
+                        continue
+                else:
+                    return {"error": "Generation timed out while polling."}
+            else:
+                # Sync mode: response.content is the binary GLB
+                model_content = response.content
+            
+            if not model_content:
+                return {"error": "Failed to retrieve model content."}
+
             # Decode base64 and save to temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=".glb") as temp_file:
-                temp_file.write(response.content)
+                temp_file.write(model_content)
                 temp_file_name = temp_file.name
 
             # Import the GLB file in the main thread
@@ -2569,7 +2616,7 @@ def register():
         name="Octree Resolution",
         description="Octree resolution for the 3D generation",
         default=256,
-        min=128,
+        min=64,
         max=512,
     )
 
@@ -2577,7 +2624,7 @@ def register():
         name="Number of Inference Steps",
         description="Number of inference steps for the 3D generation",
         default=20,
-        min=20,
+        min=5,
         max=50,
     )
 
